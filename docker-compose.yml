@@ -1,0 +1,84 @@
+# Local stack: API + Celery worker + PostgreSQL + Redis.
+#
+#   docker compose up --build        # run everything (API on :8000)
+#   docker compose up -d db redis    # or just the infrastructure, and run
+#                                    # `uvicorn src:app --reload` yourself
+#
+# Credentials match the defaults in .env.example. Secrets (JWT_SECRET, mail
+# password, ANTHROPIC_API_KEY) come from a local `.env`, which is gitignored.
+services:
+  api:
+    build: .
+    container_name: sales_insight_api
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://sales:sales@db:5432/sales_insight
+      REDIS_URL: redis://redis:6379/0
+      DOMAIN: localhost:8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Migrate first (Alembic owns the schema), then seed demo data, then serve.
+    command: >
+      sh -c "alembic upgrade head &&
+             (python -m src.seed || echo 'seed skipped') &&
+             uvicorn src:app --host 0.0.0.0 --port 8000"
+
+  worker:
+    build: .
+    container_name: sales_insight_worker
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+asyncpg://sales:sales@db:5432/sales_insight
+      REDIS_URL: redis://redis:6379/0
+      DOMAIN: localhost:8000
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    # Sends invitation / verification / password-reset emails off the request path.
+    command: celery -A src.celery.celery_app worker --loglevel=info
+
+  db:
+    image: postgres:16
+    container_name: sales_insight_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sales
+      POSTGRES_PASSWORD: sales
+      POSTGRES_DB: sales_insight
+    ports:
+      - "5432:5432"
+    volumes:
+      - sales_insight_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sales -d sales_insight"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: sales_insight_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sales_insight_pgdata:
