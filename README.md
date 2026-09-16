@@ -1,4 +1,6 @@
 # Sales Insight 📊
+[![CI](https://github.com/anisLa00/Salesinsight/actions/workflows/ci.yml/badge.svg)](https://github.com/anisLa00/Salesinsight/actions/workflows/ci.yml)
+
 
 A **multi-tenant, AI-powered sales analytics REST API**. Each business runs its
 own team, catalog, customers and sales; the API aggregates that data and turns
