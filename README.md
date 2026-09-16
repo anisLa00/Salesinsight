@@ -95,8 +95,8 @@ If you have Docker, this runs the whole stack (API + PostgreSQL + Redis) and
 seeds demo data automatically:
 
 ```bash
-git clone https://github.com/anisLa00/Salesinsights.git
-cd Salesinsights
+git clone https://github.com/anisLa00/Salesinsight.git
+cd Salesinsight
 docker compose up --build
 ```
 
